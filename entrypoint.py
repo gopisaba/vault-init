@@ -18,6 +18,11 @@ except KeyError:
     VAULT_ADDR = "https://127.0.0.1:8200"
 
 try:
+    VAULT_TLS_VERIFY = os.environ["VAULT_TLS_VERIFY"]
+except KeyError:
+    VAULT_TLS_VERIFY = False
+
+try:
     CHECK_INTERVAL = int(os.environ["CHECK_INTERVAL"])
 except KeyError:
     CHECK_INTERVAL = 10
@@ -82,7 +87,7 @@ def initialize():
     """
     Initialize Vault if not already
     """
-    client = hvac.Client(url=VAULT_ADDR)
+    client = hvac.Client(url=VAULT_ADDR, verify=VAULT_TLS_VERIFY)
     killer = GracefulKiller()
     while not killer.kill_now:
         try:
