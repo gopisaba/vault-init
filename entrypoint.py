@@ -8,6 +8,7 @@ import signal
 import hvac
 import boto3
 
+logging.basicConfig(format='%(asctime)s [%(levelname)s] - %(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logging.info("Starting the vault-init service...")
