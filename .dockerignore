@@ -1,0 +1,5 @@
+*.md
+.editorconfig
+.gitignore
+.vscode
+venv
