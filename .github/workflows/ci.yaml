@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  docker:
+    name: Docker CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: CheckOut
+        uses: actions/checkout@v2
+      - name: Docker Lint
+        uses: hadolint/hadolint-action@v1.5.0
+  python:
+    name: Python CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: CheckOut
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |-
+          pip install black pylint
+          pip install -r requirements.txt
+      - name: Pylint
+        run: |-
+          pylint entrypoint.py
+      - name: Black
+        run: |-
+          black --check --diff entrypoint.py
