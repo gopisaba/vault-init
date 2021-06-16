@@ -24,6 +24,11 @@ except KeyError:
     VAULT_TLS_VERIFY = False
 
 try:
+    AWS_DEFAULT_REGION = os.environ["AWS_DEFAULT_REGION"]
+except KeyError:
+    AWS_DEFAULT_REGION = "eu-west-1"
+
+try:
     CHECK_INTERVAL = int(os.environ["CHECK_INTERVAL"])
 except KeyError:
     CHECK_INTERVAL = 10
@@ -72,7 +77,8 @@ def write_to_ssm(secret, name, description):
     """
     Write Vault Secrets to SSM Parameter Store
     """
-    client = boto3.client("ssm")
+    client = boto3.client("ssm", region_name=AWS_DEFAULT_REGION)
+    logging.info("Writing %s to SSM", name)
     client.put_parameter(
         Name=name,
         Description=description,
@@ -91,18 +97,19 @@ def initialize(client):
     if client.sys.is_initialized():
         logging.info("Vault already Initialized")
     else:
+        logging.info("Initializing...")
         result = client.sys.initialize(
             recovery_shares=RECOVERY_SHARES, recovery_threshold=RECOVERY_THRESHOLD
         )
         write_to_ssm(
+            result["root_token"],
             f"{SSM_PARAMETER_STORE_PREFIX}/root_token",
             "Vault Root Token",
-            result["root_token"],
         )
         write_to_ssm(
+            result["keys"],
             f"{SSM_PARAMETER_STORE_PREFIX}/recovery_keys",
             "Vault Recovery Keys",
-            result["keys"],
         )
         logging.info("Vault Initialized")
 

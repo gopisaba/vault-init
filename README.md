@@ -10,6 +10,7 @@ It assumes, you are running the Vault on EKS with AWS KMS auto-unseal option.
 
 The following optional environment variables are supported,
 
+- `AWS_DEFAULT_REGION` - The default AWS region. Default `eu-west-1`.
 - `CHECK_INTERVAL` - The time in seconds between Vault health checks. Default `10`.
 - `RECOVERY_SHARES` - The number of shares to split the recovery key into. Default `5`.
 - `RECOVERY_THRESHOLD` - The number of shares required to reconstruct the recovery key. This must be less than or equal to `RECOVERY_SHARES`. Default `3`.
