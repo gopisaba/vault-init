@@ -4,6 +4,7 @@ Vault init
 import logging
 import os
 import time
+import signal
 import hvac
 import boto3
 
@@ -11,29 +12,56 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logging.info("Starting the vault-init service...")
 
-VAULT_ADDR = os.environ["VAULT_ADDR"]
-if not VAULT_ADDR:
+try:
+    VAULT_ADDR = os.environ["VAULT_ADDR"]
+except KeyError:
     VAULT_ADDR = "https://127.0.0.1:8200"
 
-
-CHECK_INTERVAL = int(os.environ["CHECK_INTERVAL"])
-if not CHECK_INTERVAL:
+try:
+    CHECK_INTERVAL = int(os.environ["CHECK_INTERVAL"])
+except KeyError:
     CHECK_INTERVAL = 10
 
-
-SSM_PARAMETER_STORE_PREFIX = os.environ["SSM_PARAMTER_STORE_PREFIX"]
-if not SSM_PARAMETER_STORE_PREFIX:
+try:
+    SSM_PARAMETER_STORE_PREFIX = os.environ["SSM_PARAMTER_STORE_PREFIX"]
+except KeyError:
     SSM_PARAMETER_STORE_PREFIX = "/vault"
 
-
-RECOVERY_SHARES = int(os.environ["RECOVERY_SHARES"])
-if not RECOVERY_SHARES:
+try:
+    RECOVERY_SHARES = int(os.environ["RECOVERY_SHARES"])
+except KeyError:
     RECOVERY_SHARES = 5
 
-
-RECOVERY_THRESHOLD = int(os.environ["RECOVERY_THRESHOLD"])
-if not RECOVERY_THRESHOLD:
+try:
+    RECOVERY_THRESHOLD = int(os.environ["RECOVERY_THRESHOLD"])
+except KeyError:
     RECOVERY_THRESHOLD = 3
+
+# pylint: disable=R0903
+class GracefulKiller:
+    """
+    Graceful Killer
+    """
+
+    kill_now = False
+    signals = {
+        signal.SIGINT: "SIGINT",
+        signal.SIGTERM: "SIGTERM",
+        signal.SIGKILL: "SIGKILL",
+    }
+
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        signal.signal(signal.SIGKILL, self.exit_gracefully)
+
+    def exit_gracefully(self, signum):
+        """
+        Log and Exit
+        """
+        logging.info("Received %s signal", self.signals[signum])
+        logging.info("End of the program")
+        self.kill_now = True
 
 
 def write_to_ssm(secret, name, description):
@@ -56,12 +84,15 @@ def initialize():
     """
     Initialize Vault if not already
     """
-    while True:
+    client = hvac.Client(url=VAULT_ADDR)
+    killer = GracefulKiller()
+    while not killer.kill_now:
         try:
-            client = hvac.Client(url=VAULT_ADDR)
+            client.sys.read_health_status(method="GET")
             break
+        # pylint: disable=W0703
         except Exception as err:
-            logging.warning("Retrying after the exception %s", err)
+            logging.warning("Retrying after the exception, %s", err)
             time.sleep(CHECK_INTERVAL)
             continue
 
@@ -77,6 +108,11 @@ def initialize():
             result["root_token"],
         )
         write_to_ssm(
-            f"{SSM_PARAMETER_STORE_PREFIX}/recovery_keys", "Vault Recovery Keys", result["keys"]
+            f"{SSM_PARAMETER_STORE_PREFIX}/recovery_keys",
+            "Vault Recovery Keys",
+            result["keys"],
         )
         logging.info("Vault Initialized")
+
+
+initialize()
