@@ -83,22 +83,10 @@ def write_to_ssm(secret, name, description):
     return True
 
 
-def initialize():
+def initialize(client):
     """
     Initialize Vault if not already
     """
-    client = hvac.Client(url=VAULT_ADDR, verify=VAULT_TLS_VERIFY)
-    killer = GracefulKiller()
-    while not killer.kill_now:
-        try:
-            client.sys.read_health_status(method="GET")
-            break
-        # pylint: disable=W0703
-        except Exception as err:
-            logging.warning("Retrying after the exception, %s", err)
-            time.sleep(CHECK_INTERVAL)
-            continue
-
     if client.sys.is_initialized():
         logging.info("Vault already Initialized")
     else:
@@ -118,4 +106,15 @@ def initialize():
         logging.info("Vault Initialized")
 
 
-initialize()
+killer = GracefulKiller()
+while not killer.kill_now:
+    vault_client = hvac.Client(url=VAULT_ADDR, verify=VAULT_TLS_VERIFY)
+    try:
+        vault_client.sys.read_health_status(method="GET")
+    # pylint: disable=W0703
+    except Exception as err:
+        logging.warning("Retrying after the exception, %s", err)
+        time.sleep(CHECK_INTERVAL)
+        continue
+    initialize(vault_client)
+    time.sleep(CHECK_INTERVAL)
